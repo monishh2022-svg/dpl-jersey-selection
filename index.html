@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DPL Cricket League — Jersey Colour Selection</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body { background:#06090f; color:#fff; font-family:'DM Sans',sans-serif; margin:0; }
+header { text-align:center; padding:40px; }
+h1 { font-family:'Bebas Neue'; font-size:60px; }
+
+.form-grid { max-width:900px; margin:auto; display:grid; gap:10px; padding:20px; }
+.card { background:#111827; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; }
+
+select { padding:8px; border-radius:6px; }
+
+button {
+  background:#f5a623; border:none; padding:15px 30px;
+  font-size:18px; border-radius:50px; cursor:pointer;
+}
+button:disabled { opacity:0.4; }
+
+.modal {
+  position:fixed; inset:0; background:rgba(0,0,0,0.9);
+  display:none; align-items:center; justify-content:center;
+}
+.modal.open { display:flex; }
+
+.box { background:#111; padding:30px; border-radius:10px; max-height:80vh; overflow:auto; }
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>DPL Jersey Selection</h1>
+<p>Select once → permanently locked</p>
+</header>
+
+<div class="form-grid" id="formGrid"></div>
+
+<div style="text-align:center; margin:20px;">
+<button id="submitBtn" onclick="submitAll()" disabled>CONFIRM</button>
+</div>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h2>Final Results</h2>
+    <div id="results"></div>
+    <br>
+    <button onclick="downloadCSV()">Download CSV</button>
+    <button onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+const COLOURS = [
+  "Red","Blue","Green","Yellow","Orange","Purple","Black","White",
+  "Grey","Maroon","Sky Blue","Navy Blue","Teal","Lime","Pink","Brown",
+  "Gold","Silver","Violet","Indigo","Coral","Turquoise","Olive","Magenta",
+  "Beige","Mustard","Peach","Mint","Lavender","Crimson","Charcoal","Aqua"
+];
+
+const TEAMS = [
+  "TDL Group","BARCLAYS","INFOSYS","TDS","Congruent","V Ships","Walmart","Salpcom",
+  "NASCO","ENSONO","INTELECT","CAMS","Zoho","Ovation","Standard Chartered",
+  "Spectra Medical","GEN DIGITAL","APOLLO TYRES","HCL","FOURKITES",
+  "Societe Generale","Agilisium","DAE","Hapag Lloyd",
+  "Comcast","Walmart Tech","Zifo","Fidelity"
+];
+
+const selections = {};
+const locked = {};
+
+function buildForm() {
+  const grid = document.getElementById('formGrid');
+  grid.innerHTML = '';
+
+  TEAMS.forEach((team, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const select = document.createElement('select');
+    select.id = 'sel-' + i;
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = "";
+    defaultOpt.textContent = "Select colour";
+    select.appendChild(defaultOpt);
+
+    COLOURS.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      select.appendChild(opt);
+    });
+
+    select.onchange = () => pick(i);
+
+    card.innerHTML = `<strong>${team}</strong>`;
+    card.appendChild(select);
+    grid.appendChild(card);
+  });
+}
+
+function pick(i) {
+  const sel = document.getElementById('sel-' + i);
+  const val = sel.value;
+  if (!val) return;
+
+  // prevent duplicate
+  if (Object.values(selections).includes(val)) {
+    alert("Already selected!");
+    sel.value = "";
+    return;
+  }
+
+  selections[i] = val;
+  locked[i] = true;
+
+  sel.disabled = true;
+
+  updateBtn();
+}
+
+function updateBtn() {
+  const done = Object.keys(locked).length;
+  document.getElementById('submitBtn').disabled = done !== TEAMS.length;
+}
+
+function submitAll() {
+  const res = document.getElementById('results');
+  res.innerHTML = '';
+
+  TEAMS.forEach((t,i)=>{
+    const colour = selections[i] || "Not selected";
+    res.innerHTML += `<p>${i+1}. ${t} → ${colour}</p>`;
+  });
+
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+function downloadCSV() {
+  let csv = "Team,Colour\n";
+  TEAMS.forEach((t,i)=>{
+    csv += `${t},${selections[i] || ''}\n`;
+  });
+
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = "DPL_Results.csv";
+  a.click();
+}
+
+buildForm();
+</script>
+
+</body>
+</html>
