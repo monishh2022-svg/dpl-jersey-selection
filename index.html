@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DPL Cricket League — Jersey Colour Selection</title>
+<title>DPL Jersey Selection</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body { background:#06090f; color:#fff; font-family:'DM Sans',sans-serif; margin:0; }
+body { background:#06090f; color:#fff; font-family:'DM Sans'; margin:0; }
 header { text-align:center; padding:40px; }
 h1 { font-family:'Bebas Neue'; font-size:60px; }
 
@@ -18,19 +17,13 @@ h1 { font-family:'Bebas Neue'; font-size:60px; }
 
 select { padding:8px; border-radius:6px; }
 
+.locked { border:1px solid #22c55e; }
+
 button {
   background:#f5a623; border:none; padding:15px 30px;
   font-size:18px; border-radius:50px; cursor:pointer;
 }
 button:disabled { opacity:0.4; }
-
-.modal {
-  position:fixed; inset:0; background:rgba(0,0,0,0.9);
-  display:none; align-items:center; justify-content:center;
-}
-.modal.open { display:flex; }
-
-.box { background:#111; padding:30px; border-radius:10px; max-height:80vh; overflow:auto; }
 </style>
 </head>
 
@@ -44,124 +37,104 @@ button:disabled { opacity:0.4; }
 <div class="form-grid" id="formGrid"></div>
 
 <div style="text-align:center; margin:20px;">
-<button id="submitBtn" onclick="submitAll()" disabled>CONFIRM</button>
-</div>
-
-<div class="modal" id="modal">
-  <div class="box">
-    <h2>Final Results</h2>
-    <div id="results"></div>
-    <br>
-    <button onclick="downloadCSV()">Download CSV</button>
-    <button onclick="closeModal()">Close</button>
-  </div>
+<button id="submitBtn" disabled>CONFIRM</button>
 </div>
 
 <script>
+const API_URL = "PASTE_YOUR_GOOGLE_SCRIPT_URL_HERE";
+
 const COLOURS = [
-  "Red","Blue","Green","Yellow","Orange","Purple","Black","White",
-  "Grey","Maroon","Sky Blue","Navy Blue","Teal","Lime","Pink","Brown",
-  "Gold","Silver","Violet","Indigo","Coral","Turquoise","Olive","Magenta",
-  "Beige","Mustard","Peach","Mint","Lavender","Crimson","Charcoal","Aqua"
+"Red","Blue","Green","Yellow","Orange","Purple","Black","White",
+"Grey","Maroon","Sky Blue","Navy Blue","Teal","Lime","Pink","Brown",
+"Gold","Silver","Violet","Indigo","Coral","Turquoise","Olive","Magenta",
+"Beige","Mustard","Peach","Mint","Lavender","Crimson","Charcoal","Aqua"
 ];
 
 const TEAMS = [
-  "TDL Group","BARCLAYS","INFOSYS","TDS","Congruent","V Ships","Walmart","Salpcom",
-  "NASCO","ENSONO","INTELECT","CAMS","Zoho","Ovation","Standard Chartered",
-  "Spectra Medical","GEN DIGITAL","APOLLO TYRES","HCL","FOURKITES",
-  "Societe Generale","Agilisium","DAE","Hapag Lloyd",
-  "Comcast","Walmart Tech","Zifo","Fidelity"
+"TDL Group","BARCLAYS","INFOSYS","TDS","Congruent","V Ships","Walmart","Salpcom",
+"NASCO","ENSONO","INTELECT","CAMS","Zoho","Ovation","Standard Chartered",
+"Spectra Medical","GEN DIGITAL","APOLLO TYRES","HCL","FOURKITES",
+"Societe Generale","Agilisium","DAE","Hapag Lloyd",
+"Comcast","Walmart Tech","Zifo","Fidelity"
 ];
 
-const selections = {};
-const locked = {};
+let selections = {};
 
+/* 🔥 FETCH EXISTING DATA (KEY PART) */
+async function loadData() {
+  const res = await fetch(API_URL);
+  const data = await res.json();
+  selections = data || {};
+  buildForm();
+}
+
+/* BUILD UI */
 function buildForm() {
   const grid = document.getElementById('formGrid');
   grid.innerHTML = '';
 
+  const used = new Set(Object.values(selections));
+
   TEAMS.forEach((team, i) => {
+    const selected = selections[team];
+
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card' + (selected ? ' locked' : '');
 
-    const select = document.createElement('select');
-    select.id = 'sel-' + i;
-
-    const defaultOpt = document.createElement('option');
-    defaultOpt.value = "";
-    defaultOpt.textContent = "Select colour";
-    select.appendChild(defaultOpt);
+    let options = `<option value="">Select Colour</option>`;
 
     COLOURS.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      select.appendChild(opt);
+      const taken = used.has(c) && c !== selected;
+      options += `<option value="${c}" 
+        ${selected === c ? 'selected' : ''}
+        ${taken ? 'disabled' : ''}>
+        ${taken ? '✕ ' : ''}${c}
+      </option>`;
     });
 
-    select.onchange = () => pick(i);
+    card.innerHTML = `
+      <strong>${team}</strong>
+      <select onchange="pick('${team}', this)" ${selected ? 'disabled' : ''}>
+        ${options}
+      </select>
+    `;
 
-    card.innerHTML = `<strong>${team}</strong>`;
-    card.appendChild(select);
     grid.appendChild(card);
   });
-}
-
-function pick(i) {
-  const sel = document.getElementById('sel-' + i);
-  const val = sel.value;
-  if (!val) return;
-
-  // prevent duplicate
-  if (Object.values(selections).includes(val)) {
-    alert("Already selected!");
-    sel.value = "";
-    return;
-  }
-
-  selections[i] = val;
-  locked[i] = true;
-
-  sel.disabled = true;
 
   updateBtn();
 }
 
+/* PICK */
+async function pick(team, sel) {
+  const colour = sel.value;
+  if (!colour) return;
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ team, colour })
+  });
+
+  const data = await res.json();
+
+  if (data.status === "error") {
+    alert(data.message);
+    sel.value = "";
+    return;
+  }
+
+  selections[team] = colour;
+  buildForm();
+}
+
+/* BUTTON */
 function updateBtn() {
-  const done = Object.keys(locked).length;
-  document.getElementById('submitBtn').disabled = done !== TEAMS.length;
+  document.getElementById('submitBtn').disabled =
+    Object.keys(selections).length !== TEAMS.length;
 }
 
-function submitAll() {
-  const res = document.getElementById('results');
-  res.innerHTML = '';
-
-  TEAMS.forEach((t,i)=>{
-    const colour = selections[i] || "Not selected";
-    res.innerHTML += `<p>${i+1}. ${t} → ${colour}</p>`;
-  });
-
-  document.getElementById('modal').classList.add('open');
-}
-
-function closeModal() {
-  document.getElementById('modal').classList.remove('open');
-}
-
-function downloadCSV() {
-  let csv = "Team,Colour\n";
-  TEAMS.forEach((t,i)=>{
-    csv += `${t},${selections[i] || ''}\n`;
-  });
-
-  const blob = new Blob([csv], {type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = "DPL_Results.csv";
-  a.click();
-}
-
-buildForm();
+/* INIT */
+loadData();
 </script>
 
 </body>
