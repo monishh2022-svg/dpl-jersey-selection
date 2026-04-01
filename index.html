@@ -9,11 +9,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body { background:#06090f; color:#fff; font-family:'DM Sans'; margin:0; }
+body { background:#06090f; color:#dde3f0; font-family:'DM Sans'; margin:0; }
 header { text-align:center; padding:40px; }
 h1 { font-family:'Bebas Neue'; font-size:60px; }
 
 .form-grid { max-width:900px; margin:auto; padding:20px; display:grid; gap:12px; }
+
 .card {
   background:#111827;
   padding:15px;
@@ -21,8 +22,15 @@ h1 { font-family:'Bebas Neue'; font-size:60px; }
   display:flex;
   justify-content:space-between;
   align-items:center;
+  transition:0.2s;
 }
-.locked { border:2px solid #22c55e; }
+
+.card:hover { transform: translateY(-2px); }
+
+.locked {
+  border:2px solid #22c55e;
+  box-shadow:0 0 15px rgba(34,197,94,0.3);
+}
 
 select {
   padding:8px;
@@ -30,6 +38,20 @@ select {
   background:#1f2937;
   color:#fff;
   border:none;
+}
+
+.color-dot {
+  width:20px;
+  height:20px;
+  border-radius:50%;
+}
+
+.colour-pill {
+  padding:5px 12px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:600;
+  margin-left:10px;
 }
 </style>
 </head>
@@ -44,8 +66,11 @@ select {
 <div class="form-grid" id="formGrid"></div>
 
 <script>
+
+/* 🔥 GOOGLE API */
 const API_URL = "https://script.google.com/macros/s/AKfycbzqTuJ7ZN31ZbOK5LZ3jfTlDi83RqflO233OJf9a4QpVKcVMSJ2Tj-Yc3d0U6_Zn1P_UQ/exec";
 
+/* 🎨 COLOURS */
 const COLOURS = [
 {name:"Red",hex:"#FF0000"},{name:"Blue",hex:"#0000FF"},
 {name:"Green",hex:"#00FF00"},{name:"Yellow",hex:"#FFFF00"},
@@ -65,18 +90,24 @@ const COLOURS = [
 {name:"Electric Blue",hex:"#7DF9FF"},{name:"Dark Forest Green",hex:"#014421"}
 ];
 
+/* 🏏 TEAMS */
 const TEAMS = [
-"TDL Group","BARCLAYS","INFOSYS","TDS","Congruent","V Ships","Walmart","Salpcom",
-"NASCO","ENSONO","INTELECT","CAMS","Zoho","Ovation","Standard Chartered",
-"Spectra Medical","GEN DIGITAL","APOLLO TYRES","HCL","FOURKITES",
-"Societe Generale","Agilisium","DAE","Hapag Lloyd",
-"Comcast","Walmart Tech","Zifo","Fidelity"
+"TDL Group Of Company","BARCLAYS","INFOSYS","TDS",
+"Congruent Infotech Pvt ltd","V Ships","Walmart","Salpcom",
+"NASCO (DAE)","ENSONO Tech","INTELECT","CAMS",
+"Zoho Corporation Pvt Limited","Ovation Services Private Limited",
+"Standard Charted Bank","spectra medical India pvt ltd",
+"GEN DIGITAL","APOLLO TYRES","HCL","FOURKITES",
+"Societe Generale","Agilisium consulting service pvt ltd",
+"DEPARTMENT OF ATOMIC ENERGY","Hapag Lloyd Global Service Pvt Ltd",
+"Comcast India Engineering Center","Walmart Global Tech",
+"Zifo Technologies Pvt Ltd","Fidelity Investments"
 ];
 
 let selections = {};
 let locked = {};
 
-// 🔄 LOAD DATA FROM GOOGLE SHEET
+/* 🔄 LOAD DATA */
 async function loadData() {
   try {
     const res = await fetch(API_URL + "?t=" + Date.now());
@@ -99,12 +130,10 @@ async function loadData() {
 
     buildUI();
 
-  } catch (err) {
-    console.log("Load error");
-  }
+  } catch {}
 }
 
-// 🎨 BUILD UI
+/* 🎨 UI */
 function buildUI() {
   const grid = document.getElementById("formGrid");
   grid.innerHTML = "";
@@ -113,20 +142,17 @@ function buildUI() {
 
   TEAMS.forEach((team, idx) => {
     const selected = selections[idx];
-    const selectedColor = COLOURS.find(c => c.name === selected);
+    const col = COLOURS.find(c => c.name === selected);
 
     let options = `<option value="">Select Colour</option>`;
 
-    COLOURS.forEach(col => {
-      const taken = used.has(col.name) && col.name !== selected;
+    COLOURS.forEach(c => {
+      const taken = used.has(c.name) && c.name !== selected;
 
       options += `
-        <option value="${col.name}"
-          ${selected === col.name ? "selected" : ""}
-          ${taken ? "disabled" : ""}>
-          ${taken ? "✕ " : ""}${col.name} (${col.hex})
-        </option>
-      `;
+        <option value="${c.name}" ${selected===c.name?'selected':''} ${taken?'disabled':''}>
+        ${taken?'✕ ':''}${c.name}
+        </option>`;
     });
 
     const card = document.createElement("div");
@@ -134,12 +160,15 @@ function buildUI() {
 
     card.innerHTML = `
       <strong>${team}</strong>
+
       <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:20px;height:20px;border-radius:50%;
-          background:${selectedColor ? selectedColor.hex : '#333'}"></div>
-        <select onchange="selectColour(${idx}, this)" ${selected ? "disabled" : ""}>
+        <div class="color-dot" style="background:${col?col.hex:'#333'}"></div>
+
+        <select onchange="selectColour(${idx}, this)" ${selected?'disabled':''}>
           ${options}
         </select>
+
+        ${selected ? `<div class="colour-pill" style="background:${col.hex}">${selected}</div>` : ''}
       </div>
     `;
 
@@ -147,12 +176,12 @@ function buildUI() {
   });
 }
 
-// 💾 SAVE DATA
+/* 💾 SAVE */
 async function selectColour(idx, el) {
   const colour = el.value;
   if (!colour) return;
 
-  if (!confirm("Are you sure? This cannot be changed.")) {
+  if (!confirm("Confirm selection? This cannot be changed.")) {
     el.value = "";
     return;
   }
@@ -163,7 +192,7 @@ async function selectColour(idx, el) {
       headers:{"Content-Type":"text/plain;charset=utf-8"},
       body:JSON.stringify({
         team: TEAMS[idx],
-        colour: colour
+        colour
       })
     });
 
@@ -186,11 +215,9 @@ async function selectColour(idx, el) {
   }
 }
 
-// INIT
+/* INIT */
 buildUI();
 loadData();
-
-// 🔄 LIVE SYNC
 setInterval(loadData, 2000);
 
 </script>
