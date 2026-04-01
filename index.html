@@ -83,7 +83,9 @@ h1 { font-family:'Bebas Neue'; font-size:60px; }
 <div class="form-grid" id="formGrid"></div>
 
 <script>
+
 const API_URL = "https://script.google.com/macros/s/AKfycbzqTuJ7ZN31ZbOK5LZ3jfTlDi83RqflO233OJf9a4QpVKcVMSJ2Tj-Yc3d0U6_Zn1P_UQ/exec";
+const USER_KEY = "dpl_selected_team"; // 🔒 user lock
 
 const COLOURS = [
 {name:"Red", hex:"#FF0000"},
@@ -129,6 +131,7 @@ const TEAMS = [
 ];
 
 let selections = {};
+let lockedTeam = localStorage.getItem(USER_KEY);
 
 // 🎨 BUILD UI
 function buildUI() {
@@ -139,6 +142,7 @@ function buildUI() {
 
   TEAMS.forEach(team => {
     const selected = selections[team];
+    const isUserLocked = lockedTeam && lockedTeam !== team;
 
     const card = document.createElement("div");
     card.className = "card" + (selected ? " locked" : "");
@@ -148,13 +152,17 @@ function buildUI() {
     COLOURS.forEach(col => {
       const isTaken = used.has(col.name) && col.name !== selected;
       const isSelected = selected === col.name;
+      const disableClick = isTaken || selected || isUserLocked;
 
       colorGrid += `
         <div 
-          class="color-box ${isTaken ? "taken" : ""} ${isSelected ? "selected" : ""}"
+          class="color-box 
+          ${isTaken ? "taken" : ""} 
+          ${isSelected ? "selected" : ""} 
+          ${isUserLocked ? "taken" : ""}"
           style="background:${col.hex}"
-          onclick="${!isTaken && !selected ? `selectColour('${team}', '${col.name}')` : ''}"
-          title="${col.name} (${col.hex})">
+          onclick="${!disableClick ? `selectColour('${team}', '${col.name}')` : ''}"
+          title="${isUserLocked ? "Locked to another team" : col.name}">
         </div>
       `;
     });
@@ -165,7 +173,8 @@ function buildUI() {
       <div class="team-name">${team}</div>
       ${colorGrid}
       <div class="label">
-        ${selected ? `Selected: ${selected}` : "Select a colour"}
+        ${selected ? `Selected: ${selected}` : 
+          isUserLocked ? "🔒 You can select only one team" : "Select a colour"}
       </div>
     `;
 
@@ -175,6 +184,11 @@ function buildUI() {
 
 // 💾 SAVE
 async function selectColour(team, colour) {
+
+  if (lockedTeam && lockedTeam !== team) {
+    alert("You can only select for one team!");
+    return;
+  }
 
   if (!confirm(`Confirm ${colour}? This cannot be changed.`)) return;
 
@@ -192,6 +206,10 @@ async function selectColour(team, colour) {
       alert(data.message);
       return;
     }
+
+    // 🔥 LOCK USER
+    localStorage.setItem(USER_KEY, team);
+    lockedTeam = team;
 
     selections[team] = colour;
     buildUI();
