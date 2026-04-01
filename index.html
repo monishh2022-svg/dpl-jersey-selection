@@ -1,9 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DPL Jersey Selection</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+body { background:#06090f; color:#fff; font-family:'DM Sans'; margin:0; }
+
+header { text-align:center; padding:40px; }
+h1 { font-family:'Bebas Neue'; font-size:60px; }
+
+.form-grid {
+  max-width:1000px;
+  margin:auto;
+  display:grid;
+  gap:20px;
+  padding:20px;
+}
+
+.card {
+  background:#111827;
+  padding:20px;
+  border-radius:12px;
+}
+
+.locked { border:2px solid #22c55e; }
+
+.team-name { font-weight:600; margin-bottom:12px; }
+
+.color-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap:8px;
+}
+
+.color-box {
+  width:40px;
+  height:40px;
+  border-radius:6px;
+  cursor:pointer;
+  border:2px solid transparent;
+  transition:0.2s;
+}
+
+.color-box:hover { transform:scale(1.1); }
+
+.taken { opacity:0.3; cursor:not-allowed; }
+
+.selected { border:3px solid #fff; }
+
+.label { margin-top:10px; font-size:12px; color:#aaa; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>DPL JERSEY SELECTION</h1>
+  <p>Select once → permanently locked</p>
+</header>
+
+<div class="form-grid" id="formGrid"></div>
+
 <script>
 
 const API_URL = "https://script.google.com/macros/s/AKfycbzqTuJ7ZN31ZbOK5LZ3jfTlDi83RqflO233OJf9a4QpVKcVMSJ2Tj-Yc3d0U6_Zn1P_UQ/exec";
 const USER_KEY = "dpl_selected_team";
 
-/* ✅ SAFE TEAMS */
+/* ✅ SORTED TEAMS */
 const TEAMS = [
 "TDL Group","BARCLAYS","INFOSYS","TDS","Congruent","V Ships","Walmart","Salpcom",
 "NASCO","ENSONO","INTELECT","CAMS","Zoho","Ovation","Standard Chartered",
@@ -34,58 +101,64 @@ const COLOURS = [
 let selections = {};
 let lockedTeam = localStorage.getItem(USER_KEY);
 
-/* ✅ ALWAYS RENDER UI FIRST */
+/* 🎨 UI (CRASH SAFE) */
 function buildUI() {
-  const grid = document.getElementById("formGrid");
-  if (!grid) return;
+  try {
+    const grid = document.getElementById("formGrid");
+    if (!grid) return;
 
-  grid.innerHTML = "";
+    grid.innerHTML = "";
 
-  const used = new Set(Object.values(selections));
+    const used = new Set(Object.values(selections));
 
-  TEAMS.forEach(team => {
-    const selected = selections[team];
-    const isUserLocked = lockedTeam && lockedTeam !== team;
+    TEAMS.forEach(team => {
+      const selected = selections[team];
+      const isUserLocked = lockedTeam && lockedTeam !== team;
 
-    const card = document.createElement("div");
-    card.className = "card" + (selected ? " locked" : "");
+      const card = document.createElement("div");
+      card.className = "card" + (selected ? " locked" : "");
 
-    let colorGrid = `<div class="color-grid">`;
+      let colorGrid = `<div class="color-grid">`;
 
-    COLOURS.forEach(col => {
-      const isTaken = used.has(col.name) && col.name !== selected;
-      const isSelected = selected === col.name;
-      const disableClick = isTaken || selected || isUserLocked;
+      COLOURS.forEach(col => {
+        const isTaken = used.has(col.name) && col.name !== selected;
+        const isSelected = selected === col.name;
+        const disableClick = isTaken || selected || isUserLocked;
 
-      colorGrid += `
-        <div 
-          class="color-box 
-          ${isTaken ? "taken" : ""} 
-          ${isSelected ? "selected" : ""} 
-          ${isUserLocked ? "taken" : ""}"
-          style="background:${col.hex}"
-          onclick="${!disableClick ? `selectColour('${team}','${col.name}')` : ''}">
+        colorGrid += `
+          <div 
+            class="color-box 
+            ${isTaken ? "taken" : ""} 
+            ${isSelected ? "selected" : ""} 
+            ${isUserLocked ? "taken" : ""}"
+            style="background:${col.hex}"
+            onclick="${!disableClick ? `selectColour('${team}','${col.name}')` : ''}">
+          </div>
+        `;
+      });
+
+      colorGrid += `</div>`;
+
+      card.innerHTML = `
+        <div class="team-name">${team}</div>
+        ${colorGrid}
+        <div class="label">
+          ${selected ? `Selected: ${selected}` : 
+            isUserLocked ? "🔒 One team only" : "Select a colour"}
         </div>
       `;
+
+      grid.appendChild(card);
     });
 
-    colorGrid += `</div>`;
-
-    card.innerHTML = `
-      <div class="team-name">${team}</div>
-      ${colorGrid}
-      <div class="label">
-        ${selected ? `Selected: ${selected}` : 
-          isUserLocked ? "🔒 One team only" : "Select a colour"}
-      </div>
-    `;
-
-    grid.appendChild(card);
-  });
+  } catch (err) {
+    console.log("UI Error:", err);
+  }
 }
 
-/* ✅ SAFE SAVE */
+/* 💾 SAVE */
 async function selectColour(team, colour) {
+
   if (lockedTeam && lockedTeam !== team) {
     alert("You can select only one team!");
     return;
@@ -117,30 +190,49 @@ async function selectColour(team, colour) {
     selections[team] = colour;
     buildUI();
 
-  } catch (e) {
-    console.log(e);
+  } catch (err) {
+    console.log(err);
   }
 }
 
-/* ✅ SAFE LOAD */
+/* 🔄 LOAD (SAFE) */
 async function loadData() {
   try {
     const res = await fetch(API_URL + "?t=" + Date.now());
     const text = await res.text();
 
-    if (text && text.startsWith("{")) {
-      selections = JSON.parse(text);
+    if (!text || !text.startsWith("{")) {
       buildUI();
+      return;
     }
 
-  } catch (e) {
-    console.log("API failed, UI still works");
+    const data = JSON.parse(text);
+
+    const clean = {};
+
+    Object.keys(data).forEach(team => {
+      const t = team.trim();
+      const c = (data[team] || "").trim();
+
+      const valid = COLOURS.find(x => x.name === c);
+      clean[t] = valid ? c : "";
+    });
+
+    selections = clean;
+    buildUI();
+
+  } catch (err) {
+    console.log(err);
+    buildUI();
   }
 }
 
 /* 🚀 INIT */
-buildUI();      // ALWAYS show UI
-loadData();     // THEN load data
+buildUI();   // always show UI
+loadData();  // sync data
 setInterval(loadData, 2000);
 
 </script>
+
+</body>
+</html>
