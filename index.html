@@ -8,40 +8,63 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <style>
-body { background:#06090f; color:#fff; font-family:'DM Sans'; margin:0; }
-header { text-align:center; padding:40px; }
-h1 { font-family:'Bebas Neue'; font-size:60px; }
-
-.form-grid { max-width:900px; margin:auto; display:grid; gap:10px; padding:20px; }
-.card { background:#111827; padding:15px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; }
-
-select { padding:8px; border-radius:6px; }
-
-.locked { border:1px solid #22c55e; }
-
-button {
-  background:#f5a623; border:none; padding:15px 30px;
-  font-size:18px; border-radius:50px; cursor:pointer;
+body {
+  background:#06090f;
+  color:#fff;
+  font-family:'DM Sans', sans-serif;
+  margin:0;
 }
-button:disabled { opacity:0.4; }
+
+header {
+  text-align:center;
+  padding:40px;
+}
+
+h1 {
+  font-family:'Bebas Neue';
+  font-size:60px;
+}
+
+.form-grid {
+  max-width:900px;
+  margin:auto;
+  display:grid;
+  gap:10px;
+  padding:20px;
+}
+
+.card {
+  background:#111827;
+  padding:15px;
+  border-radius:10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.locked {
+  border:1px solid #22c55e;
+}
+
+select {
+  padding:8px;
+  border-radius:6px;
+}
+
 </style>
 </head>
 
 <body>
 
 <header>
-<h1>DPL Jersey Selection</h1>
-<p>Select once → permanently locked</p>
+  <h1>DPL Jersey Selection</h1>
+  <p>Select once → permanently locked</p>
 </header>
 
 <div class="form-grid" id="formGrid"></div>
 
-<div style="text-align:center; margin:20px;">
-<button id="submitBtn" disabled>CONFIRM</button>
-</div>
-
 <script>
-const API_URL = "PASTE_YOUR_GOOGLE_SCRIPT_URL_HERE";
+const API_URL = "https://script.google.com/macros/s/AKfycbzqTuJ7ZN31ZbOK5LZ3jfTlDi83RqflO233OJf9a4QpVKcVMSJ2Tj-Yc3d0U6_Zn1P_UQ/exec";
 
 const COLOURS = [
 "Red","Blue","Green","Yellow","Orange","Purple","Black","White",
@@ -60,80 +83,97 @@ const TEAMS = [
 
 let selections = {};
 
-/* 🔥 FETCH EXISTING DATA (KEY PART) */
+// 🔥 LOAD EXISTING DATA (NO REFRESH ISSUE)
 async function loadData() {
-  const res = await fetch(API_URL);
-  const data = await res.json();
-  selections = data || {};
-  buildForm();
+  try {
+    const res = await fetch(API_URL + "?t=" + Date.now());
+    const text = await res.text();
+
+    console.log("GET:", text);
+
+    selections = text ? JSON.parse(text) : {};
+
+    buildUI();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error loading data");
+  }
 }
 
-/* BUILD UI */
-function buildForm() {
-  const grid = document.getElementById('formGrid');
-  grid.innerHTML = '';
+// 🔥 BUILD UI
+function buildUI() {
+  const grid = document.getElementById("formGrid");
+  grid.innerHTML = "";
 
   const used = new Set(Object.values(selections));
 
-  TEAMS.forEach((team, i) => {
+  TEAMS.forEach(team => {
     const selected = selections[team];
-
-    const card = document.createElement('div');
-    card.className = 'card' + (selected ? ' locked' : '');
 
     let options = `<option value="">Select Colour</option>`;
 
-    COLOURS.forEach(c => {
-      const taken = used.has(c) && c !== selected;
-      options += `<option value="${c}" 
-        ${selected === c ? 'selected' : ''}
-        ${taken ? 'disabled' : ''}>
-        ${taken ? '✕ ' : ''}${c}
-      </option>`;
+    COLOURS.forEach(col => {
+      const taken = used.has(col) && col !== selected;
+
+      options += `
+        <option value="${col}" 
+          ${selected === col ? "selected" : ""}
+          ${taken ? "disabled" : ""}>
+          ${taken ? "✕ " : ""}${col}
+        </option>
+      `;
     });
+
+    const card = document.createElement("div");
+    card.className = "card" + (selected ? " locked" : "");
 
     card.innerHTML = `
       <strong>${team}</strong>
-      <select onchange="pick('${team}', this)" ${selected ? 'disabled' : ''}>
+      <select onchange="selectColour('${team}', this)" ${selected ? "disabled" : ""}>
         ${options}
       </select>
     `;
 
     grid.appendChild(card);
   });
-
-  updateBtn();
 }
 
-/* PICK */
-async function pick(team, sel) {
-  const colour = sel.value;
+// 🔥 SAVE DATA
+async function selectColour(team, el) {
+  const colour = el.value;
   if (!colour) return;
 
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({ team, colour })
-  });
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify({ team, colour })
+    });
 
-  const data = await res.json();
+    const text = await res.text();
+    console.log("POST:", text);
 
-  if (data.status === "error") {
-    alert(data.message);
-    sel.value = "";
-    return;
+    const data = JSON.parse(text);
+
+    if (data.status === "error") {
+      alert(data.message);
+      el.value = "";
+      return;
+    }
+
+    selections[team] = colour;
+    buildUI();
+
+  } catch (err) {
+    console.error(err);
+    alert("Server error");
   }
-
-  selections[team] = colour;
-  buildForm();
 }
 
-/* BUTTON */
-function updateBtn() {
-  document.getElementById('submitBtn').disabled =
-    Object.keys(selections).length !== TEAMS.length;
-}
-
-/* INIT */
+// INIT
 loadData();
 </script>
 
