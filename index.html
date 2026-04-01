@@ -8,30 +8,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <style>
-body {
-  background:#06090f;
-  color:#fff;
-  font-family:'DM Sans', sans-serif;
-  margin:0;
-}
+body { background:#06090f; color:#fff; font-family:'DM Sans'; margin:0; }
+header { text-align:center; padding:40px; }
+h1 { font-family:'Bebas Neue'; font-size:60px; }
 
-header {
-  text-align:center;
-  padding:40px;
-}
-
-h1 {
-  font-family:'Bebas Neue';
-  font-size:60px;
-}
-
-.form-grid {
-  max-width:900px;
-  margin:auto;
-  display:grid;
-  gap:12px;
-  padding:20px;
-}
+.form-grid { max-width:900px; margin:auto; display:grid; gap:12px; padding:20px; }
 
 .card {
   background:#111827;
@@ -42,9 +23,7 @@ h1 {
   align-items:center;
 }
 
-.locked {
-  border:2px solid #22c55e;
-}
+.locked { border:2px solid #22c55e; }
 
 select {
   padding:8px;
@@ -53,7 +32,6 @@ select {
   color:#fff;
   border:none;
 }
-
 </style>
 </head>
 
@@ -85,24 +63,6 @@ const TEAMS = [
 ];
 
 let selections = {};
-
-// 🔥 LOAD DATA (FIXED)
-async function loadData() {
-  try {
-    const res = await fetch(API_URL + "?t=" + Date.now());
-    const text = await res.text();
-
-    console.log("GET:", text);
-
-    selections = text ? JSON.parse(text) : {};
-
-  } catch (err) {
-    console.error(err);
-    selections = {};
-  }
-
-  buildUI(); // ALWAYS BUILD UI
-}
 
 // 🔥 BUILD UI
 function buildUI() {
@@ -142,7 +102,23 @@ function buildUI() {
   });
 }
 
-// 🔥 SAVE DATA
+// 🔄 LOAD DATA FROM SHEET
+async function loadData() {
+  try {
+    const res = await fetch(API_URL + "?t=" + Date.now());
+    const text = await res.text();
+
+    if (text && text.startsWith("{")) {
+      selections = JSON.parse(text);
+      buildUI();
+    }
+
+  } catch (err) {
+    console.log("Fetch error");
+  }
+}
+
+// 💾 SAVE DATA
 async function selectColour(team, el) {
   const colour = el.value;
   if (!colour) return;
@@ -150,15 +126,11 @@ async function selectColour(team, el) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ team, colour })
     });
 
     const text = await res.text();
-    console.log("POST:", text);
-
     const data = JSON.parse(text);
 
     if (data.status === "error") {
@@ -171,13 +143,17 @@ async function selectColour(team, el) {
     buildUI();
 
   } catch (err) {
-    console.error(err);
     alert("Server error");
   }
 }
 
-// INIT
+// 🔥 INITIAL LOAD
+buildUI();
 loadData();
+
+// 🔄 AUTO SYNC EVERY 3 SECONDS (IMPORTANT)
+setInterval(loadData, 3000);
+
 </script>
 
 </body>
