@@ -9,10 +9,17 @@
 
 <style>
 body { background:#06090f; color:#fff; font-family:'DM Sans'; margin:0; }
+
 header { text-align:center; padding:40px; }
 h1 { font-family:'Bebas Neue'; font-size:60px; }
 
-.form-grid { max-width:900px; margin:auto; display:grid; gap:12px; padding:20px; }
+.form-grid {
+  max-width:950px;
+  margin:auto;
+  display:grid;
+  gap:12px;
+  padding:20px;
+}
 
 .card {
   background:#111827;
@@ -23,7 +30,22 @@ h1 { font-family:'Bebas Neue'; font-size:60px; }
   align-items:center;
 }
 
-.locked { border:2px solid #22c55e; }
+.locked {
+  border:2px solid #22c55e;
+}
+
+.select-wrap {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.color-dot {
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  border:1px solid #fff;
+}
 
 select {
   padding:8px;
@@ -48,10 +70,38 @@ select {
 const API_URL = "https://script.google.com/macros/s/AKfycbzqTuJ7ZN31ZbOK5LZ3jfTlDi83RqflO233OJf9a4QpVKcVMSJ2Tj-Yc3d0U6_Zn1P_UQ/exec";
 
 const COLOURS = [
-"Red","Blue","Green","Yellow","Orange","Purple","Black","White",
-"Grey","Maroon","Sky Blue","Navy Blue","Teal","Lime","Pink","Brown",
-"Gold","Silver","Violet","Indigo","Coral","Turquoise","Olive","Magenta",
-"Beige","Mustard","Peach","Mint","Lavender","Crimson","Charcoal","Aqua"
+{name:"Red", hex:"#FF0000"},
+{name:"Blue", hex:"#0000FF"},
+{name:"Green", hex:"#00FF00"},
+{name:"Yellow", hex:"#FFFF00"},
+{name:"Orange", hex:"#FFA500"},
+{name:"Purple", hex:"#800080"},
+{name:"Pink", hex:"#FFC0CB"},
+{name:"Sky Blue", hex:"#87CEEB"},
+{name:"Navy Blue", hex:"#000080"},
+{name:"Maroon", hex:"#800000"},
+{name:"Lime", hex:"#32CD32"},
+{name:"Teal", hex:"#008080"},
+{name:"Olive", hex:"#808000"},
+{name:"Cyan", hex:"#00FFFF"},
+{name:"Magenta", hex:"#FF00FF"},
+{name:"Gold", hex:"#FFD700"},
+{name:"Bronze", hex:"#CD7F32"},
+{name:"Coral", hex:"#FF7F50"},
+{name:"Turquoise", hex:"#40E0D0"},
+{name:"Indigo", hex:"#4B0082"},
+{name:"Violet", hex:"#EE82EE"},
+{name:"Crimson", hex:"#DC143C"},
+{name:"Khaki", hex:"#F0E68C"},
+{name:"Mint", hex:"#98FF98"},
+{name:"Chocolate", hex:"#D2691E"},
+{name:"Charcoal", hex:"#36454F"},
+{name:"Royal Blue", hex:"#4169E1"},
+{name:"Neon Green", hex:"#39FF14"},
+{name:"Hot Pink", hex:"#FF1493"},
+{name:"Deep Orange", hex:"#FF4500"},
+{name:"Electric Blue", hex:"#7DF9FF"},
+{name:"Dark Forest Green", hex:"#014421"}
 ];
 
 const TEAMS = [
@@ -64,7 +114,7 @@ const TEAMS = [
 
 let selections = {};
 
-// 🔥 BUILD UI
+// 🎨 BUILD UI
 function buildUI() {
   const grid = document.getElementById("formGrid");
   grid.innerHTML = "";
@@ -73,17 +123,18 @@ function buildUI() {
 
   TEAMS.forEach(team => {
     const selected = selections[team];
+    const selectedColor = COLOURS.find(c => c.name === selected);
 
     let options = `<option value="">Select Colour</option>`;
 
     COLOURS.forEach(col => {
-      const taken = used.has(col) && col !== selected;
+      const taken = used.has(col.name) && col.name !== selected;
 
       options += `
-        <option value="${col}" 
-          ${selected === col ? "selected" : ""}
+        <option value="${col.name}"
+          ${selected === col.name ? "selected" : ""}
           ${taken ? "disabled" : ""}>
-          ${taken ? "✕ " : ""}${col}
+          ${taken ? "✕ " : ""}${col.name} (${col.hex})
         </option>
       `;
     });
@@ -93,16 +144,21 @@ function buildUI() {
 
     card.innerHTML = `
       <strong>${team}</strong>
-      <select onchange="selectColour('${team}', this)" ${selected ? "disabled" : ""}>
-        ${options}
-      </select>
+
+      <div class="select-wrap">
+        <div class="color-dot" style="background:${selectedColor ? selectedColor.hex : '#333'}"></div>
+
+        <select onchange="selectColour('${team}', this)" ${selected ? "disabled" : ""}>
+          ${options}
+        </select>
+      </div>
     `;
 
     grid.appendChild(card);
   });
 }
 
-// 🔄 LOAD DATA FROM SHEET
+// 🔄 LOAD DATA
 async function loadData() {
   try {
     const res = await fetch(API_URL + "?t=" + Date.now());
@@ -112,7 +168,6 @@ async function loadData() {
       selections = JSON.parse(text);
       buildUI();
     }
-
   } catch (err) {
     console.log("Fetch error");
   }
@@ -121,7 +176,11 @@ async function loadData() {
 // 💾 SAVE DATA
 async function selectColour(team, el) {
   const colour = el.value;
-  if (!colour) return;
+
+  if (!confirm("Are you sure? This cannot be changed.")) {
+    el.value = "";
+    return;
+  }
 
   try {
     const res = await fetch(API_URL, {
@@ -147,13 +206,12 @@ async function selectColour(team, el) {
   }
 }
 
-// 🔥 INITIAL LOAD
+// INIT
 buildUI();
 loadData();
 
-// 🔄 AUTO SYNC EVERY 3 SECONDS (IMPORTANT)
-setInterval(loadData, 3000);
-
+// 🔄 LIVE SYNC
+setInterval(loadData, 2000);
 </script>
 
 </body>
