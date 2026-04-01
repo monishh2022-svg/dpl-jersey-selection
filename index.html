@@ -3,72 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DPL Jersey Selection</title>
+<title>DPL Cricket League — Jersey Colour Selection</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
 body { background:#06090f; color:#fff; font-family:'DM Sans'; margin:0; }
-
 header { text-align:center; padding:40px; }
 h1 { font-family:'Bebas Neue'; font-size:60px; }
 
-.form-grid {
-  max-width:1000px;
-  margin:auto;
-  display:grid;
-  gap:20px;
-  padding:20px;
-}
-
+.form-grid { max-width:900px; margin:auto; padding:20px; display:grid; gap:12px; }
 .card {
   background:#111827;
-  padding:20px;
-  border-radius:12px;
+  padding:15px;
+  border-radius:10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
 }
+.locked { border:2px solid #22c55e; }
 
-.locked {
-  border:2px solid #22c55e;
-}
-
-.team-name {
-  font-weight:600;
-  margin-bottom:12px;
-}
-
-/* 🎨 COLOR GRID */
-.color-grid {
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
-  gap:8px;
-}
-
-.color-box {
-  width:40px;
-  height:40px;
+select {
+  padding:8px;
   border-radius:6px;
-  cursor:pointer;
-  border:2px solid transparent;
-  transition:0.2s;
-}
-
-.color-box:hover {
-  transform:scale(1.1);
-}
-
-.taken {
-  opacity:0.3;
-  cursor:not-allowed;
-}
-
-.selected {
-  border:3px solid #fff;
-}
-
-.label {
-  margin-top:10px;
-  font-size:12px;
-  color:#aaa;
+  background:#1f2937;
+  color:#fff;
+  border:none;
 }
 </style>
 </head>
@@ -86,38 +47,22 @@ h1 { font-family:'Bebas Neue'; font-size:60px; }
 const API_URL = "https://script.google.com/macros/s/AKfycbzqTuJ7ZN31ZbOK5LZ3jfTlDi83RqflO233OJf9a4QpVKcVMSJ2Tj-Yc3d0U6_Zn1P_UQ/exec";
 
 const COLOURS = [
-{name:"Red", hex:"#FF0000"},
-{name:"Blue", hex:"#0000FF"},
-{name:"Green", hex:"#00FF00"},
-{name:"Yellow", hex:"#FFFF00"},
-{name:"Orange", hex:"#FFA500"},
-{name:"Purple", hex:"#800080"},
-{name:"Pink", hex:"#FFC0CB"},
-{name:"Sky Blue", hex:"#87CEEB"},
-{name:"Navy Blue", hex:"#000080"},
-{name:"Maroon", hex:"#800000"},
-{name:"Lime", hex:"#32CD32"},
-{name:"Teal", hex:"#008080"},
-{name:"Olive", hex:"#808000"},
-{name:"Cyan", hex:"#00FFFF"},
-{name:"Magenta", hex:"#FF00FF"},
-{name:"Gold", hex:"#FFD700"},
-{name:"Bronze", hex:"#CD7F32"},
-{name:"Coral", hex:"#FF7F50"},
-{name:"Turquoise", hex:"#40E0D0"},
-{name:"Indigo", hex:"#4B0082"},
-{name:"Violet", hex:"#EE82EE"},
-{name:"Crimson", hex:"#DC143C"},
-{name:"Khaki", hex:"#F0E68C"},
-{name:"Mint", hex:"#98FF98"},
-{name:"Chocolate", hex:"#D2691E"},
-{name:"Charcoal", hex:"#36454F"},
-{name:"Royal Blue", hex:"#4169E1"},
-{name:"Neon Green", hex:"#39FF14"},
-{name:"Hot Pink", hex:"#FF1493"},
-{name:"Deep Orange", hex:"#FF4500"},
-{name:"Electric Blue", hex:"#7DF9FF"},
-{name:"Dark Forest Green", hex:"#014421"}
+{name:"Red",hex:"#FF0000"},{name:"Blue",hex:"#0000FF"},
+{name:"Green",hex:"#00FF00"},{name:"Yellow",hex:"#FFFF00"},
+{name:"Orange",hex:"#FFA500"},{name:"Purple",hex:"#800080"},
+{name:"Pink",hex:"#FFC0CB"},{name:"Sky Blue",hex:"#87CEEB"},
+{name:"Navy Blue",hex:"#000080"},{name:"Maroon",hex:"#800000"},
+{name:"Lime",hex:"#32CD32"},{name:"Teal",hex:"#008080"},
+{name:"Olive",hex:"#808000"},{name:"Cyan",hex:"#00FFFF"},
+{name:"Magenta",hex:"#FF00FF"},{name:"Gold",hex:"#FFD700"},
+{name:"Bronze",hex:"#CD7F32"},{name:"Coral",hex:"#FF7F50"},
+{name:"Turquoise",hex:"#40E0D0"},{name:"Indigo",hex:"#4B0082"},
+{name:"Violet",hex:"#EE82EE"},{name:"Crimson",hex:"#DC143C"},
+{name:"Khaki",hex:"#F0E68C"},{name:"Mint",hex:"#98FF98"},
+{name:"Chocolate",hex:"#D2691E"},{name:"Charcoal",hex:"#36454F"},
+{name:"Royal Blue",hex:"#4169E1"},{name:"Neon Green",hex:"#39FF14"},
+{name:"Hot Pink",hex:"#FF1493"},{name:"Deep Orange",hex:"#FF4500"},
+{name:"Electric Blue",hex:"#7DF9FF"},{name:"Dark Forest Green",hex:"#014421"}
 ];
 
 const TEAMS = [
@@ -129,6 +74,35 @@ const TEAMS = [
 ];
 
 let selections = {};
+let locked = {};
+
+// 🔄 LOAD DATA FROM GOOGLE SHEET
+async function loadData() {
+  try {
+    const res = await fetch(API_URL + "?t=" + Date.now());
+    const text = await res.text();
+
+    if (!text.startsWith("{")) return;
+
+    const data = JSON.parse(text);
+
+    selections = {};
+    locked = {};
+
+    Object.keys(data).forEach(team => {
+      const idx = TEAMS.indexOf(team);
+      if (idx !== -1) {
+        selections[idx] = data[team];
+        locked[idx] = true;
+      }
+    });
+
+    buildUI();
+
+  } catch (err) {
+    console.log("Load error");
+  }
+}
 
 // 🎨 BUILD UI
 function buildUI() {
@@ -137,35 +111,35 @@ function buildUI() {
 
   const used = new Set(Object.values(selections));
 
-  TEAMS.forEach(team => {
-    const selected = selections[team];
+  TEAMS.forEach((team, idx) => {
+    const selected = selections[idx];
+    const selectedColor = COLOURS.find(c => c.name === selected);
+
+    let options = `<option value="">Select Colour</option>`;
+
+    COLOURS.forEach(col => {
+      const taken = used.has(col.name) && col.name !== selected;
+
+      options += `
+        <option value="${col.name}"
+          ${selected === col.name ? "selected" : ""}
+          ${taken ? "disabled" : ""}>
+          ${taken ? "✕ " : ""}${col.name} (${col.hex})
+        </option>
+      `;
+    });
 
     const card = document.createElement("div");
     card.className = "card" + (selected ? " locked" : "");
 
-    let colorGrid = `<div class="color-grid">`;
-
-    COLOURS.forEach(col => {
-      const isTaken = used.has(col.name) && col.name !== selected;
-      const isSelected = selected === col.name;
-
-      colorGrid += `
-        <div 
-          class="color-box ${isTaken ? "taken" : ""} ${isSelected ? "selected" : ""}"
-          style="background:${col.hex}"
-          onclick="${!isTaken && !selected ? `selectColour('${team}', '${col.name}')` : ''}"
-          title="${col.name} (${col.hex})">
-        </div>
-      `;
-    });
-
-    colorGrid += `</div>`;
-
     card.innerHTML = `
-      <div class="team-name">${team}</div>
-      ${colorGrid}
-      <div class="label">
-        ${selected ? `Selected: ${selected}` : "Select a colour"}
+      <strong>${team}</strong>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:20px;height:20px;border-radius:50%;
+          background:${selectedColor ? selectedColor.hex : '#333'}"></div>
+        <select onchange="selectColour(${idx}, this)" ${selected ? "disabled" : ""}>
+          ${options}
+        </select>
       </div>
     `;
 
@@ -173,16 +147,24 @@ function buildUI() {
   });
 }
 
-// 💾 SAVE
-async function selectColour(team, colour) {
+// 💾 SAVE DATA
+async function selectColour(idx, el) {
+  const colour = el.value;
+  if (!colour) return;
 
-  if (!confirm(`Confirm ${colour}? This cannot be changed.`)) return;
+  if (!confirm("Are you sure? This cannot be changed.")) {
+    el.value = "";
+    return;
+  }
 
   try {
     const res = await fetch(API_URL, {
       method:"POST",
       headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify({team, colour})
+      body:JSON.stringify({
+        team: TEAMS[idx],
+        colour: colour
+      })
     });
 
     const text = await res.text();
@@ -190,10 +172,13 @@ async function selectColour(team, colour) {
 
     if (data.status === "error") {
       alert(data.message);
+      el.value = "";
       return;
     }
 
-    selections[team] = colour;
+    selections[idx] = colour;
+    locked[idx] = true;
+
     buildUI();
 
   } catch {
@@ -201,23 +186,11 @@ async function selectColour(team, colour) {
   }
 }
 
-// 🔄 LOAD
-async function loadData() {
-  try {
-    const res = await fetch(API_URL + "?t=" + Date.now());
-    const text = await res.text();
-
-    if (text.startsWith("{")) {
-      selections = JSON.parse(text);
-      buildUI();
-    }
-
-  } catch {}
-}
-
 // INIT
 buildUI();
 loadData();
+
+// 🔄 LIVE SYNC
 setInterval(loadData, 2000);
 
 </script>
